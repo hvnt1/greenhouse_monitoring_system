@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import serial
 import requests
 import uvicorn
+import time
 from datetime import datetime
 
 app = FastAPI()
@@ -42,6 +43,8 @@ async def change_state(request: Request):
     pump = data['pump']
     state = State(light=light, pump=pump)
     requests.post('http://localhost:8001/change_state', json=state.dict())
+    updateControllerState()
+
     return {"message": "state changed"}
 
 @app.get('/get_readings')
@@ -68,31 +71,56 @@ async def clear_db():
 @app.get("/receive_input")
 async def sensor_read():
     line = controller.readline().decode().strip()
+    controller.flushInput()
     readings = line.split(',')
     current_time = datetime.now()
     formatted_time = current_time.strftime("%H%M%S")
-    reading = SensorReading(time=formatted_time, temp=readings[0], moisture=readings[1])
-    print("Added to database:",reading)
+    temp = readings[0]
+    moisture = readings[1]
+    reading = SensorReading(time=formatted_time, temp=temp, moisture=moisture)
+
+    settings = requests.get('http://localhost:8001/get_settings').text[1:-1].split(",")
+    for setting in settings:
+        if 'operating_mode' in setting:
+            if 'Auto' in setting:
+                states = requests.get('http://localhost:8001/get_state').text[1:-1].split(",")
+                light = '0'
+                pump = '0'
+                for state in states:
+                    if 'light' in state:
+                        light = state[9:]
+                    elif 'pump' in state:
+                        pump = state[7:-1]
+                for setting in settings:
+                    if 'temp_setting' in setting:
+                        if float(temp) < float(setting[16:]):
+                            if light == '0':
+                                state = State(light="1", pump=pump)
+                                print("Turned on light")
+                                requests.post('http://localhost:8001/change_state', json=state.dict())
+                                controller.write('1'.encode())
+                        else:
+                            if light == '1':
+                                state = State(light="0", pump=pump)
+                                print("Turned off light")
+                                requests.post('http://localhost:8001/change_state', json=state.dict())
+                                controller.write('0'.encode())
+                    elif 'moisture_setting' in setting:
+                        if float(moisture) < float(setting[19:]):
+                            if pump == '0':
+                                state = State(light=light, pump="1")
+                                print("Turned on pump")
+                                requests.post('http://localhost:8001/change_state', json=state.dict())
+                                controller.write('4'.encode())
+                        else:
+                            if pump == '1':
+                                state = State(light=light, pump="0")
+                                print("Turned off pump")
+                                requests.post('http://localhost:8001/change_state', json=state.dict())
+                                controller.write('3'.encode())
+
     response = requests.post('http://localhost:8001/add_reading', json=reading.dict())
     return {"message": "received reading"}
-
-@app.get("/light_on")
-async def light_on():
-    controller.write('1'.encode())
-    line = controller.readline().decode().strip()
-    return line
-
-@app.get("/light_off")
-async def light_off():
-    controller.write('0'.encode())
-
-@app.get("/pump_on")
-async def pump_on():
-    controller.write('4'.encode())
-
-@app.get("/pump_off")
-async def pump_off():
-    controller.write('3'.encode())
 
 @app.get("/get_settings")
 async def get_settings():
@@ -110,6 +138,31 @@ async def get_settings():
             operating_mode = field
     return {'temp_setting': temp_setting, 'moisture_setting': moisture_setting, 'operating_mode': operating_mode}
 
+def updateControllerState():
+    states = requests.get('http://localhost:8001/get_state').text[1:-1].split(",")
+    light = '0'
+    pump = '0'
+    for state in states:
+        if 'light' in state:
+            light = state[9:]
+        elif 'pump' in state:
+            pump = state[7:-1]
+
+    if light == '0':
+        controller.write('0'.encode())
+    elif light == '1':
+        controller.write('1'.encode())
+
+    if pump == '0':
+        controller.write('3'.encode())
+    elif pump == '1':
+        controller.write('4'.encode())
+    print("Cotroller State Updated")
+
 if __name__ == "__main__":
+    print("Initialising Controller")
     controller = serial.Serial("/dev/cu.usbmodem1101", baudrate=9600)
+    time.sleep(2)
+    updateControllerState()
+    time.sleep(1)
     uvicorn.run(app, host="127.0.0.1", port=8000)
