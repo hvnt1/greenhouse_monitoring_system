@@ -1,5 +1,4 @@
 import matplotlib
-from fastapi import FastAPI, HTTPException
 import requests
 matplotlib.use('Agg')  # Use the 'Agg' backend which does not require a display
 

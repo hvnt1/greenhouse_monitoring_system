@@ -124,10 +124,7 @@ async def sensor_read():
 
 @app.get("/get_settings")
 async def get_settings():
-    response = requests.get('http://localhost:8001/get_settings')
-    response_body = response.text
-    response_body = response_body[1:-1]
-    fields = response_body.split(",")
+    fields = requests.get('http://localhost:8001/get_settings').text[1:-1].split(",")
     
     for field in fields:
         if 'temp_setting' in field:
