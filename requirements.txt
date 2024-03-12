@@ -1,0 +1,10 @@
+fastapi
+pymongo
+pydantic
+matplotlib
+requests
+pymongo
+serial
+uvicorn
+datetime
+flask
