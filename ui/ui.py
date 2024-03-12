@@ -63,15 +63,11 @@ def index():
 @app.route('/refresh', methods=['GET'])
 def refresh():
     # Generate new graph data
-    response = requests.get("http://localhost:8000/get_readings")
-    response2 = requests.get("http://localhost:8000/get_settings")
-    response_body = response.text
+    fields = requests.get("http://localhost:8000/get_readings").text[1:-1].split[","]
+    fields2 = requests.get("http://localhost:8000/get_settings").text[1:-1].split[","]
     times = []
     temps = []
     moistures = []
-    response_body = response_body[1:-1]
-
-    fields = response_body.split(",")
 
     for field in fields:
         if 'time' in field:
@@ -81,10 +77,7 @@ def refresh():
         if 'moisture' in field:
             moistures.append(float(field[12:-1]))
 
-    response_body2 = response2.text
-    response_body2 = response_body2[1:-1]
-    fields = response_body2.split(",")
-    for field in fields:
+    for field in fields2:
         if 'temp_setting' in field:
             temp_setting = field[34:-1]
         if 'moisture_setting' in field:
@@ -92,13 +85,10 @@ def refresh():
         if 'operating_mode' in field:
             operating_mode = field[39:-4]
 
-    response3 = requests.get("http://localhost:8000/get_state")
-    response_body3 = response3.text
-    response_body3 = response_body3[1:-1]
-    fields = response_body3.split(",")
+    fields3 = requests.get("http://localhost:8000/get_state").text[1:-1].split[","]
     light = 0
     pump = 0
-    for field in fields:
+    for field in fields3:
         if 'light' in field:
             light = field[9:]
             if light == '0':
