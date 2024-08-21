@@ -1,12 +1,13 @@
 import matplotlib
 import requests
 matplotlib.use('Agg')  # Use the 'Agg' backend which does not require a display
-
+from pydantic import BaseModel
 from flask import Flask, render_template, jsonify, request
 import matplotlib.pyplot as plt
 import numpy as np
 from io import BytesIO
 import base64
+import json
 
 last_temp_read_x = 0
 last_temp_read_y = 0
@@ -64,7 +65,7 @@ def index():
 def refresh():
     # Generate new graph data
     response = requests.get("http://localhost:8000/get_readings")
-    response2 = requests.get("http://localhost:8000/get_settings")
+    response2 = json.loads(requests.get("http://localhost:8000/get_settings").text)
     response_body = response.text
     times = []
     temps = []
@@ -81,36 +82,22 @@ def refresh():
         if 'moisture' in field:
             moistures.append(float(field[12:-1]))
 
-    response_body2 = response2.text
-    response_body2 = response_body2[1:-1]
-    fields = response_body2.split(",")
-    for field in fields:
-        if 'temp_setting' in field:
-            temp_setting = field[34:-1]
-        if 'moisture_setting' in field:
-            moisture_setting = field[41:-1]
-        if 'operating_mode' in field:
-            operating_mode = field[39:-4]
+    temp_setting = response2['temp_setting']
+    moisture_setting = response2['moisture_setting']
+    operating_mode = response2['operating_mode']
 
-    response3 = requests.get("http://localhost:8000/get_state")
-    response_body3 = response3.text
-    response_body3 = response_body3[1:-1]
-    fields = response_body3.split(",")
-    light = 0
-    pump = 0
-    for field in fields:
-        if 'light' in field:
-            light = field[9:]
-            if light == '0':
-                light = 'Off'
-            else:
-                light = 'On'
-        if 'pump' in field:
-            pump = field[7:-1]
-            if pump == '0':
-                pump = 'Off'
-            else:
-                pump = 'On'
+    response3 = json.loads(requests.get("http://localhost:8000/get_state").text)
+    light = int(response3['light'])
+    pump = int(response3['pump'])
+    if light == 0:
+        light = 'Off'
+    elif light == 1:
+        light = 'On'
+
+    if pump == 0:
+        pump = 'Off'
+    elif pump == 1:
+        pump = 'On'
 
     last_temp_read_x = times
     last_temp_read_y = temps
@@ -127,21 +114,6 @@ def refresh():
 def receive_input():
     requests.get("http://localhost:8000/receive_input")
     return jsonify({'message': 'Read request received'})
-
-@app.route('/get_state', methods=['GET'])
-def get_state():
-    response = requests.get("http://localhost:8000/get_state")
-    response_body = response.text
-    response_body = response_body[1:-1]
-    fields = response_body.split(",")
-    light = 0
-    pump = 0
-    for field in fields:
-        if 'light' in field:
-            light = field
-        if 'pump' in field:
-            pump = field
-    return jsonify({'light': light, 'pump': pump})
 
 @app.route('/clear_readings', methods=['GET'])
 def clear_readings():

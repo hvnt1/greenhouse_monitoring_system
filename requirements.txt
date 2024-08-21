@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pymongo
+serial
+pyserial
+flask
+matplotlib
+pydantic
+requests
+numpy
