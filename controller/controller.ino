@@ -66,6 +66,5 @@ void loop() {
       digitalWrite(lightPin, LOW);
     }
 
-    delay(1000);
 }
 
