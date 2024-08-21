@@ -71,7 +71,7 @@ def refresh():
     temps = []
     moistures = []
 
-    for field in fields:
+    for field in response_body:
         if 'time' in field:
             times.append(int(field[8:]))
         if 'temp' in field:
