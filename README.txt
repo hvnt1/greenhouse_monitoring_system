@@ -18,9 +18,9 @@ use sensor_database
 db.state.find()
 
 Install requirements:
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 
 
 TODO:
-- raise http exceptions
-- Arduino to respond to state update informing success
+- Fix x axis (times) on graphs
+- Smooth temp readings

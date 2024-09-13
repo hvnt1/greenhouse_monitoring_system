@@ -139,7 +139,7 @@ async def sensor_read():
         formatted_time = current_time.strftime("%H%M%S")
         if len(cont_readings) == 2 and cont_readings[0] != "1000":
             temp = cont_readings[0]
-            moisture = round(int(cont_readings[1]) / 5, 1)
+            moisture = round(int(cont_readings[1]) / 5)
             if moisture > 100:
                 moisture = 100
 

@@ -71,7 +71,6 @@ def refresh():
     moistures = []
 
     for field in response:
-        print(field)
         times.append(field['time'])
         temps.append(field['temp'])
         moistures.append(field['moisture'])
