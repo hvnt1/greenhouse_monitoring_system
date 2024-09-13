@@ -4,28 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Greenhouse Monitoring System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+
+        .content-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .settings-container, .graph-container, .button-container {
+            margin-bottom: 20px;
+        }
+
+        .settings-container p {
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+
+        .settings-container span {
+            font-weight: bold;
+        }
+
+        .button-container {
+            text-align: center;
+        }
+
+        .button-container button {
+            background-color: #27ae60;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .button-container button:hover {
+            background-color: #2ecc71;
+        }
+
+        .graph-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .graph-container img {
+            max-width: 45%;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .graph-container {
+                flex-direction: column;
+            }
+
+            .graph-container img {
+                max-width: 90%;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Greenhouse Monitoring System</h1>
-    <div class="button-container" id="buttonContainer"></div>
-    <div id ="variableContainer">
-        <p>Temperature Setting: <span id="tempSetting"></span></p>
-        <p>Moisture Setting: <span id="moistureSetting"></span></p> 
-        <p>Current Operating Mode: <span id="operatingMode"></span></p> 
-        <p>Light: <span id="light"></span></p> 
-        <p>Pump: <span id="pump"></span></p> 
-    </div>
-    <div id="graphContainer">
-        <img id="graphImageTemp" src="data:image/png;base64,{{ graph_data_temp }}" alt="Graph">
-        <img id="graphImageMoisture" src="data:image/png;base64,{{ graph_data_moisture }}" alt="Graph">
+    <div class="content-container">
+        <h1>Greenhouse Monitoring System</h1>
+
+        <div class="settings-container" id="variableContainer">
+            <p>Temperature Setting: <span id="tempSetting">0°C</span></p>
+            <p>Moisture Setting: <span id="moistureSetting">0%</span></p>
+            <p>Current Operating Mode: <span id="operatingMode">Auto</span></p>
+            <p>Light: <span id="light">Off</span></p>
+            <p>Pump: <span id="pump">Off</span></p>
+        </div>
+
+        <div class="button-container" id="buttonContainer"></div>
+
+        <div class="graph-container" id="graphContainer">
+            <img id="graphImageTemp" src="data:image/png;base64,{{ graph_data_temp }}" alt="Temperature Graph">
+            <img id="graphImageMoisture" src="data:image/png;base64,{{ graph_data_moisture }}" alt="Moisture Graph">
+        </div>
     </div>
 
     <script>
-        var temp_setting = 0
-        var moisture_setting = 0
-        var operating_mode = "Auto"
-        var light = 0
-        var pump = 0
+        var temp_setting = 0;
+        var moisture_setting = 0;
+        var operating_mode = "Auto";
+        var light = "Off";
+        var pump = "Off";
 
         window.onload = function() {
             refresh();
@@ -33,17 +117,17 @@
 
         function displayButtons() {
             var buttonContainer = document.getElementById('buttonContainer');
-            buttonContainer.innerHTML = ''; // Clear previous buttons
+            buttonContainer.innerHTML = '';
 
             if (operating_mode === 'Manual') {
-                buttonContainer.innerHTML += '<button class="button" onclick="clearReadings()">Clear Sensor Readings</button>';
-                buttonContainer.innerHTML += '<button class="button" onclick="autoMode()">Switch to Auto</button>';
-                buttonContainer.innerHTML += '<button class="button" onclick="toggleLight()">Toggle Light</button>'; 
-                buttonContainer.innerHTML += '<button class="button" onclick="togglePump()">Toggle Pump</button>'; 
-            } else if (operating_mode === 'Auto') {
-                buttonContainer.innerHTML += '<button class="button" onclick="changeSettings()">Change Settings</button>';
-                buttonContainer.innerHTML += '<button class="button" onclick="clearReadings()">Clear Sensor Readings</button>';                
-                buttonContainer.innerHTML += '<button class="button" onclick="manualMode()">Switch to Manual</button>';
+                buttonContainer.innerHTML += '<button onclick="clearReadings()">Clear Sensor Readings</button>';
+                buttonContainer.innerHTML += '<button onclick="autoMode()">Switch to Auto</button>';
+                buttonContainer.innerHTML += '<button onclick="toggleLight()">Toggle Light</button>';
+                buttonContainer.innerHTML += '<button onclick="togglePump()">Toggle Pump</button>';
+            } else {
+                buttonContainer.innerHTML += '<button onclick="changeSettings()">Change Settings</button>';
+                buttonContainer.innerHTML += '<button onclick="clearReadings()">Clear Sensor Readings</button>';
+                buttonContainer.innerHTML += '<button onclick="manualMode()">Switch to Manual</button>';
             }
         }
 
@@ -52,152 +136,84 @@
             moisture_setting = prompt("Enter desired moisture level:");
             fetch('/change_settings', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify
-                ({
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     temp_setting: temp_setting,
                     moisture_setting: moisture_setting,
                     operating_mode: operating_mode
                 })
-            })
-            refresh();
+            }).then(refresh);
         }
 
-       function clearReadings() {
-            fetch('/clear_readings', {
-                method: 'GET'
-            })
-            refresh();
+        function clearReadings() {
+            fetch('/clear_readings', { method: 'GET' }).then(refresh);
         }
 
         function manualMode() {
+            operating_mode = "Manual";
             fetch('/change_settings', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify
-                ({
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     temp_setting: temp_setting,
                     moisture_setting: moisture_setting,
                     operating_mode: "Manual"
                 })
-            })
-            refresh();
+            }).then(refresh);
         }
 
         function autoMode() {
+            operating_mode = "Auto";
             fetch('/change_settings', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify
-                ({
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     temp_setting: temp_setting,
                     moisture_setting: moisture_setting,
                     operating_mode: "Auto"
                 })
-            })
-            refresh();
+            }).then(refresh);
         }
 
         function toggleLight() {
-            var lValue = '0';
-            var pValue = '0';
-
-            if (light === 'Off') {
-                lValue = '1'
-            } else {
-                lValue = '0'
-            }
-
-            if (pump === 'Off') {
-                pValue = '0'
-            } else {
-                pValue = '1'
-            }
-
+            light = (light === "Off") ? "On" : "Off";
             fetch('/change_state', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify
-                ({
-                    light: lValue,
-                    pump: pValue
-                })
-            })
-            refresh();
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ light: light, pump: pump })
+            }).then(refresh);
         }
 
         function togglePump() {
-            var lValue = '0';
-            var pValue = '0';
-
-            if (light === 'Off') {
-                lValue = '0'
-            } else {
-                lValue = '1'
-            }
-
-            if (pump === 'Off') {
-                pValue = '1'
-            } else {
-                pValue = '0'
-            }
-
+            pump = (pump === "Off") ? "On" : "Off";
             fetch('/change_state', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify
-                ({
-                    light: lValue,
-                    pump: pValue
-                })
-            })
-            refresh();
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ light: light, pump: pump })
+            }).then(refresh);
         }
 
         function refresh() {
-            // Send an AJAX request to the /refresh route
-            fetch('/refresh', {
-                method: 'GET',
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Update the graph image with the new graph data
-                document.getElementById('graphImageTemp').src = 'data:image/png;base64,' + data.graph_data_temp;
-                document.getElementById('graphImageMoisture').src = 'data:image/png;base64,' + data.graph_data_moisture;
-                document.getElementById("tempSetting").innerText = data.temp_setting;
-                document.getElementById("moistureSetting").innerText = data.moisture_setting;
-                document.getElementById("operatingMode").innerText = data.operating_mode;
-                document.getElementById("light").innerText = data.light;
-                document.getElementById("pump").innerText = data.pump;
-                temp_setting = data.temp_setting;
-                moisture_setting = data.moisture_setting;
-                operating_mode = data.operating_mode;
-                light = data.light;
-                pump = data.pump;
-                displayButtons();
-            })
-            .catch(error => console.error('Error:', error));
-
-        }
-
-        function receiveInput() {
-            fetch('/receive_input', {
-                method: 'GET'
-            })
+            fetch('/refresh', { method: 'GET' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('graphImageTemp').src = 'data:image/png;base64,' + data.graph_data_temp;
+                    document.getElementById('graphImageMoisture').src = 'data:image/png;base64,' + data.graph_data_moisture;
+                    document.getElementById("tempSetting").innerText = data.temp_setting + "°C";
+                    document.getElementById("moistureSetting").innerText = data.moisture_setting + "%";
+                    document.getElementById("operatingMode").innerText = data.operating_mode;
+                    document.getElementById("light").innerText = data.light;
+                    document.getElementById("pump").innerText = data.pump;
+                    temp_setting = data.temp_setting;
+                    moisture_setting = data.moisture_setting;
+                    operating_mode = data.operating_mode;
+                    light = data.light;
+                    pump = data.pump;
+                    displayButtons();
+                }).catch(error => console.error('Error:', error));
         }
 
         setInterval(refresh, 5000);
-        setInterval(receiveInput, 1000);
     </script>
 </body>
 </html>

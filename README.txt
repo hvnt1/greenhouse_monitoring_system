@@ -14,7 +14,7 @@ brew services start mongodb-community
 
 Show state in mongodb:
 mongosh
-use sensor_readings
+use sensor_database
 db.state.find()
 
 Install requirements:

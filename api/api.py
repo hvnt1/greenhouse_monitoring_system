@@ -4,6 +4,7 @@ from pymongo import MongoClient
 import serial
 import serial.tools.list_ports
 import uvicorn
+import logging
 import time
 import asyncio
 from datetime import datetime
@@ -17,6 +18,20 @@ readings = db["sensor_readings"]
 settings = db["settings"]
 state = db["state"]
 controller = None
+logging.basicConfig(level=logging.INFO,
+                    format='%(levelname)s - %(message)s')
+logger = logging.getLogger()
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(run_backround_tasks())
+
+async def run_backround_tasks():
+    while True:
+        if controller is not None:
+            await sensor_read()
+        await asyncio.sleep(1)
 
 class SensorReading(BaseModel):
     """Class that stores time, temp and moisture of a sensor reading"""
@@ -38,7 +53,7 @@ class State(BaseModel):
 
 @app.get("/")
 async def read_root():
-    """Endpoint function printing basic info"""
+    """Endpoint function returning basic info"""
     return {"message": "Greenhouse monitoring system api. Please see /docs for endpoints"}
 
 
@@ -92,10 +107,9 @@ async def get_state():
 async def clear_db():
     """Endpoint function that clears all sensor readings in the db"""
     db["sensor_readings"].drop()
-    print("cleared readings table")
+    logger.info("Cleared readings table")
 
 
-@app.get("/receive_input")
 async def sensor_read():
     """Endpoint function that request a reading from the controller,
        writes the returned reading to the db, and changes state of the
@@ -123,9 +137,12 @@ async def sensor_read():
         cont_readings = line.split(',')
         current_time = datetime.now()
         formatted_time = current_time.strftime("%H%M%S")
-        if len(cont_readings) == 2:
+        if len(cont_readings) == 2 and cont_readings[0] != "1000":
             temp = cont_readings[0]
-            moisture = cont_readings[1]
+            moisture = round(int(cont_readings[1]) / 5, 1)
+            if moisture > 100:
+                moisture = 100
+
             reading = SensorReading(time=formatted_time, temp=temp, moisture=moisture)
 
             settings1 = settings.find_one({}, {'_id': 0})
@@ -134,28 +151,28 @@ async def sensor_read():
                 light = states.get('light')
                 pump = states.get('pump')
                 if float(temp) < float(settings1.get('temp_setting')):
-                    if light == '0':
+                    if light == 0:
                         state1 = State(light="1", pump=pump)
-                        print("Turned on light")
+                        logger.info("Turned on light")
                         db["state"].drop()
                         state.insert_one(state1.model_dump())
                         controller.write('1'.encode())
-                    elif light == '1':
-                        state1 = State(light="0", pump=pump)
-                        print("Turned off light")
-                        db["state"].drop()
-                        state.insert_one(state1.model_dump())
-                        controller.write('0'.encode())
+                elif light == 1:
+                    state1 = State(light="0", pump=pump)
+                    logger.info("Turned off light")
+                    db["state"].drop()
+                    state.insert_one(state1.model_dump())
+                    controller.write('0'.encode())
                 if float(moisture) < float(settings1.get('moisture_setting')):
-                    if pump == '0':
+                    if pump == 0:
                         state1 = State(light=light, pump="1")
-                        print("Turned on pump")
+                        logger.info("Turned on pump")
                         db["state"].drop()
                         state.insert_one(state1.model_dump())
                         controller.write('4'.encode())
-                    elif pump == '1':
+                elif pump == 1:
                         state1 = State(light=light, pump="0")
-                        print("Turned off pump")
+                        logger.info("Turned off pump")
                         db["state"].drop()
                         state.insert_one(state1.model_dump())
                         controller.write('3'.encode())
@@ -164,10 +181,7 @@ async def sensor_read():
             return {'message': 'Sensor reading added successfully',
                     'inserted_id': str(result.inserted_id)}
         else:
-            raise HTTPException(
-                status_code=500,
-                detail="Sensor read failed"
-            )
+            logger.error("Error occured while reading from sensors")
 
     
 
@@ -204,27 +218,27 @@ async def update_controller_state():
     await asyncio.sleep(1)
     CONTROLLER_LOCK = False
 
-    print(f"Controller State Updated. Pump: {pump.replace("0", "off").replace("1", "on")}, Light: {light.replace("0", "off").replace("1", "on")}")
+    logger.info(f"Controller State Updated. Pump: {pump.replace("0", "off").replace("1", "on")}, Light: {light.replace("0", "off").replace("1", "on")}")
 
 
 def add_default_settings():
     """Function that adds default settings to the db"""
     if "settings" not in db.list_collection_names():
-        print("Added default settings")
+        logger.info("Added default settings")
         default_settings = Settings(temp_setting=25.0, moisture_setting=50.0, operating_mode="Auto")
         settings.insert_one(default_settings.model_dump())
     if "state" not in db.list_collection_names():
-        print("Added default state")
+        logger.info("Added default state")
         default_state = State(light=0, pump=0)
         default_state = default_state.model_dump()
         state.insert_one(default_state)
 
 
 if __name__ == "__main__":
-    print("# Initialising Database")
+    logger.info("# Initialising Database")
     add_default_settings()
-    print("# Database Initialised")
-    print("# Initialising Controller")
+    logger.info("# Database Initialised")
+    logger.info("# Initialising Controller")
 
     # Connect to Arduino controller serial port
     ports = serial.tools.list_ports.comports()
@@ -233,12 +247,12 @@ if __name__ == "__main__":
         if "usbmodem" in port.device:
             controller_port = port.device
     if controller_port is not None:
-        print(f"Successfuly connected to {controller_port}")
+        logger.info(f"Successfuly connected to {controller_port}")
         controller = serial.Serial(controller_port, baudrate=9600)
         time.sleep(2)
         asyncio.run(update_controller_state())
         time.sleep(1)
-        print("# Controller Initialised")
+        logger.info("# Controller Initialised")
         uvicorn.run(app, host="127.0.0.1", port=8000)
     else:
-        print("Failed to connect Arduino controller.")
+        logger.error("Failed to connect Arduino controller.")

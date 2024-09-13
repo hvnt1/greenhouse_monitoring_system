@@ -21,7 +21,7 @@ def generate_temp_graph(x, y):
     plt.figure()
     plt.plot(x, y)
     plt.xlabel('Time')
-    plt.ylabel('Degrees (C)')
+    plt.ylabel('Degrees (°C)')
     plt.title('Temperature')
 
     # Save the plot to a bytes object
@@ -39,7 +39,7 @@ def generate_moisture_graph(x, y):
     plt.figure()
     plt.plot(x, y)
     plt.xlabel('Time')
-    plt.ylabel('Moisture Level')
+    plt.ylabel('Moisture Level (%)')
     plt.title('Soil Moisture')
 
     # Save the plot to a bytes object
@@ -64,20 +64,18 @@ def index():
 @app.route('/refresh', methods=['GET'])
 def refresh():
     # Generate new graph data
-    response = requests.get("http://localhost:8000/get_readings")
+    response = json.loads(requests.get("http://localhost:8000/get_readings").text)
     response2 = json.loads(requests.get("http://localhost:8000/get_settings").text)
-    response_body = response.text
     times = []
     temps = []
     moistures = []
 
-    for field in response_body:
-        if 'time' in field:
-            times.append(int(field[8:]))
-        if 'temp' in field:
-            temps.append(float(field[8:]))
-        if 'moisture' in field:
-            moistures.append(float(field[12:-1]))
+    for field in response:
+        print(field)
+        times.append(field['time'])
+        temps.append(field['temp'])
+        moistures.append(field['moisture'])
+
 
     temp_setting = response2['temp_setting']
     moisture_setting = response2['moisture_setting']

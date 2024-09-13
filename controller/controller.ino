@@ -1,15 +1,19 @@
-int lightPin = 12;
-int pumpPin = 11;
-int tempPin = A0;
-int moisturePin = A1;
+#include <DHT22.h>
+
+#define lightPin 12
+#define pumpPin 11
+#define tempPin 2
+#define moisturePin A1
+
 int pumpOn = false;
 int lightOn = false;
+
+DHT22 dht(tempPin);
 
 void setup() {
     pinMode(lightPin, OUTPUT);
     pinMode(pumpPin, OUTPUT);
-    pinMode(A0, INPUT);
-    pinMode(A1, INPUT);
+    pinMode(moisturePin, INPUT);
     Serial.begin(9600);
 }
 
@@ -39,11 +43,14 @@ void loop() {
           while (Serial.available()) {
             Serial.read();  // Read and discard any remaining data in the buffer
           }
-          int tempRead = analogRead(tempPin);
-          int moistureRead = analogRead(moisturePin);
-          String sendString = String(tempRead) + "," + String(moistureRead);
-
-          Serial.println(sendString);
+          float tempRead = dht.getTemperature();
+          if (dht.getLastError() != dht.OK) {
+            Serial.println("1000,1000");
+          } else {
+            int moistureRead = analogRead(moisturePin);
+            String sendString = String(tempRead) + "," + String(moistureRead);
+            Serial.println(sendString);
+          }
         }
 
     }
