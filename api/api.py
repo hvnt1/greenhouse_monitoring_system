@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
 from pymongo import MongoClient
 import serial
 import serial.tools.list_ports
@@ -7,17 +6,23 @@ import uvicorn
 import logging
 import time
 import asyncio
-from datetime import datetime
+
+from api.models import SensorReading, Settings, State
 
 CONTROLLER_LOCK = False
 
+# Instantiate the app
 app = FastAPI()
+
+# Declare the mongodb config and declare other global variables
 client = MongoClient("mongodb://localhost:27017/")
 db = client["sensor_database"]
 readings = db["sensor_readings"]
 settings = db["settings"]
 state = db["state"]
 controller = None
+
+# Instantiate the logger
 logging.basicConfig(level=logging.INFO,
                     format='%(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -25,41 +30,29 @@ logger = logging.getLogger()
 
 @app.on_event("startup")
 async def startup_event():
+    """Function that will be run on app startup"""
+
     asyncio.create_task(run_backround_tasks())
 
 async def run_backround_tasks():
+    """Function containing tasks to be run continually in the background"""
+
     while True:
         if controller is not None:
             await sensor_read()
         await asyncio.sleep(1)
 
-class SensorReading(BaseModel):
-    """Class that stores time, temp and moisture of a sensor reading"""
-    time: int
-    temp: float
-    moisture: float
-
-class Settings(BaseModel):
-    """Class that stores temp setting, moisture setting,
-       and operating mode"""
-    temp_setting: float
-    moisture_setting: float
-    operating_mode: str
-
-class State(BaseModel):
-    """Class that stores light and pump state"""
-    light: int
-    pump: int
-
 @app.get("/")
 async def read_root():
     """Endpoint function returning basic info"""
+
     return {"message": "Greenhouse monitoring system api. Please see /docs for endpoints"}
 
 
 @app.post("/change_settings")
 async def change_settings(request: Request):
     """Endpoint function that changes settings in the db"""
+
     data = await request.json()
     temp_setting = data['temp_setting']
     moisture_setting = data['moisture_setting']
@@ -77,6 +70,7 @@ async def change_settings(request: Request):
 @app.post("/change_state")
 async def change_state(request: Request):
     """Endpoint function that changes light and pump state in the db"""
+
     data = await request.json()
     light = data['light']
     pump = data['pump']
@@ -92,12 +86,14 @@ async def change_state(request: Request):
 @app.get('/get_readings')
 def get_readings():
     """Endpoint function that returns sensor readings from the db"""
+
     return list(readings.find({}, {'_id': 0}))
     
 
 @app.get('/get_state')
 async def get_state():
     """Endpoint function that returns the pump and light state from the db"""
+
     await update_controller_state()
     read = state.find_one({}, {'_id': 0, 'light': 1, 'pump': 1})
     return State(light=read.get("light"), pump=read.get("pump")).model_dump()
@@ -106,12 +102,13 @@ async def get_state():
 @app.get("/clear_readings")
 async def clear_db():
     """Endpoint function that clears all sensor readings in the db"""
+
     db["sensor_readings"].drop()
     logger.info("Cleared readings table")
 
 
 async def sensor_read():
-    """Endpoint function that request a reading from the controller,
+    """Function that requests a reading from the controller,
        writes the returned reading to the db, and changes state of the
        light and pump based on the reading"""
     
@@ -128,14 +125,14 @@ async def sensor_read():
         line = ''
         controller.readline()
         while True:
-            char = controller.read().decode()  # Read a single character and decode it
+            char = controller.read().decode()
             if char == '\n':
-                break  # Exit loop when newline is encountered
+                break
             line += char
         controller.flushInput()
         CONTROLLER_LOCK = False
         cont_readings = line.split(',')
-        current_time = datetime.now()
+        current_time = int(time.time())
         formatted_time = current_time.strftime("%H%M%S")
         if len(cont_readings) == 2 and cont_readings[0] != "1000":
             temp = cont_readings[0]
@@ -183,12 +180,11 @@ async def sensor_read():
         else:
             logger.error("Error occured while reading from sensors")
 
-    
-
 
 @app.get("/get_settings")
 async def get_settings():
     """Endpoint function that returns the settings from the db"""
+
     fields = settings.find_one({}, {'_id': 0})
     settings1 = Settings(temp_setting=fields.get("temp_setting"), moisture_setting=fields.get("moisture_setting"), operating_mode=fields.get("operating_mode"))
     return settings1.model_dump()
@@ -196,6 +192,7 @@ async def get_settings():
 
 async def update_controller_state():
     """Function that updates the controller light and pump state"""
+
     global CONTROLLER_LOCK
     states = state.find_one({}, {'_id': 0, 'light': 1, 'pump': 1})
     light = str(states.get('light', '0'))
@@ -223,6 +220,7 @@ async def update_controller_state():
 
 def add_default_settings():
     """Function that adds default settings to the db"""
+    
     if "settings" not in db.list_collection_names():
         logger.info("Added default settings")
         default_settings = Settings(temp_setting=25.0, moisture_setting=50.0, operating_mode="Auto")
