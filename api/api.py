@@ -7,7 +7,7 @@ import logging
 import time
 import asyncio
 
-from api.models import SensorReading, Settings, State
+from models import SensorReading, Settings, State
 
 CONTROLLER_LOCK = False
 
@@ -39,7 +39,10 @@ async def run_backround_tasks():
 
     while True:
         if controller is not None:
-            await sensor_read()
+            try:
+                await sensor_read()
+            except Exception as e:
+                logger.error(e)
         await asyncio.sleep(1)
 
 @app.get("/")
@@ -133,14 +136,13 @@ async def sensor_read():
         CONTROLLER_LOCK = False
         cont_readings = line.split(',')
         current_time = int(time.time())
-        formatted_time = current_time.strftime("%H%M%S")
         if len(cont_readings) == 2 and cont_readings[0] != "1000":
             temp = cont_readings[0]
             moisture = round(int(cont_readings[1]) / 5)
             if moisture > 100:
                 moisture = 100
 
-            reading = SensorReading(time=formatted_time, temp=temp, moisture=moisture)
+            reading = SensorReading(time=current_time, temp=temp, moisture=moisture)
 
             settings1 = settings.find_one({}, {'_id': 0})
             if settings1.get('operating_mode') == 'Auto':
@@ -220,7 +222,7 @@ async def update_controller_state():
 
 def add_default_settings():
     """Function that adds default settings to the db"""
-    
+
     if "settings" not in db.list_collection_names():
         logger.info("Added default settings")
         default_settings = Settings(temp_setting=25.0, moisture_setting=50.0, operating_mode="Auto")

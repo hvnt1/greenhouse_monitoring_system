@@ -177,19 +177,25 @@
 
         function toggleLight() {
             light = (light === "Off") ? "On" : "Off";
+            send_light = (light === "On") ? "1" : "0"
+            send_pump = (pump === "On") ? "1" : "0"
+
             fetch('/change_state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ light: light, pump: pump })
+                body: JSON.stringify({ light: send_light, pump: send_pump })
             }).then(refresh);
         }
 
         function togglePump() {
             pump = (pump === "Off") ? "On" : "Off";
+            send_light = (light === "On") ? "1" : "0"
+            send_pump = (pump === "On") ? "1" : "0"
+
             fetch('/change_state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ light: light, pump: pump })
+                body: JSON.stringify({ light: send_light, pump: send_pump })
             }).then(refresh);
         }
 
